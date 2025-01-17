@@ -72,10 +72,6 @@ def plot():
     x_vals = [pos[0] for pos in workspace]
     z_vals = [pos[1] for pos in workspace]
 
-    print(x_vals)
-    print(z_vals)
-
-
     elbow_up_points = []
     elbow_down_points = []
     common_points = []
