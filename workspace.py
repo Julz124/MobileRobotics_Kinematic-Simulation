@@ -1,22 +1,50 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from roboter import Roboter
+import transformations as tf
 
 class Workspace:
+    '''
     @staticmethod
     def forward_kinematics(l1, l2, beta_1, beta_2):
         x = l1 * np.cos(beta_1) + l2 * np.cos(beta_1 + beta_2)
         z = l1 * np.sin(beta_1) + l2 * np.sin(beta_1 + beta_2)
         return x, z
-    
+    '''
+
     @staticmethod
-    def calculate_workspace(self, robot):
+    def forward_kinematics(l1, l2, beta_1, beta_2):
+        T0 = tf.trans([0, 0])
+        R1 = tf.rot2trans(tf.rot(beta_1))
+        TR0 = np.matmul(T0, R1)
+
+        T1 = tf.trans([l1, 0])
+        TR1 = np.matmul(TR0, T1)
+
+        R2 = tf.rot2trans(tf.rot(beta_2))
+        TR2 = np.matmul(TR1, R2)
+
+        T2 = tf.trans([l2, 0])
+        TR3 = np.matmul(TR2, T2)
+
+        x, z = TR3[0, 2], TR3[1, 2]
+        
+        return x, z
+
+
+    @staticmethod
+    def calculate_workspace(self, robot, res):
 
         base_x = robot.l / 2
         base_z = robot.h
 
-        beta_1_range = np.radians(np.linspace(robot.beta_1_limits[0], robot.beta_1_limits[1], 100))
-        beta_2_range = np.radians(np.linspace(robot.beta_2_limits[0], robot.beta_2_limits[1], 100))
+        beta_1_range = np.radians(np.linspace(robot.beta_1_limits[0], robot.beta_1_limits[1], res))
+        beta_2_range = np.radians(np.linspace(robot.beta_2_limits[0], robot.beta_2_limits[1], res))
+
+        with open("output/beta_1.txt", "a") as f:
+            print(beta_1_range, file=f)
+        with open("output/beta_2.txt", "a") as f:
+            print(beta_2_range, file=f)
 
         workspace = []
         
@@ -32,7 +60,7 @@ def plot():
     robot = Roboter()
     ws = Workspace()
 
-    workspace, base_x, base_z = ws.calculate_workspace(ws, robot)
+    workspace, base_x, base_z = ws.calculate_workspace(ws, robot, 100)
 
     x_vals = [pos[0] for pos in workspace]
     z_vals = [pos[1] for pos in workspace]
