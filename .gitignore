@@ -170,4 +170,6 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
-output/
+./output/*
+output/beta_1.txt
+output/beta_2.txt
