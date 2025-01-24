@@ -5,15 +5,17 @@ from workspace import Workspace
 
 class Inverse_Kinematics:
     @staticmethod
-    def inverse_kinematics(robot, x, z, elbow_up=True):
+    def inverse_kinematics(robot, x, y, z, elbow_up=True):
         l1, l2 = robot.l1, robot.l2
 
         base_x = x - robot.l / 2
+        base_y = y
         base_z = z - robot.h
         
-        # Ceck if point within reach
-        distance = np.sqrt(np.power(base_x, 2) + np.power(base_z, 2))
-        if distance > (l1 + l2) or distance < abs(l1 - l2):
+        distance = np.sqrt(np.power(base_x, 2) + 
+                           np.power(base_y, 2) + 
+                           np.power(base_z, 2))
+        if distance >= (l1 + l2) or distance <= abs(l1 - l2):
             return None, None
 
         '''
@@ -23,13 +25,14 @@ class Inverse_Kinematics:
         Elbow-Down
         epsilon = 1 (beta2, b > 0)
         '''
-        # define epsilon for elbow up/down configuration
         epsilon = -1
         if not elbow_up:
             epsilon = 1
 
-        # calculate beta over trigonometry
-        c = (np.power(base_x, 2) + np.power(base_z, 2) - np.power(l1, 2) - np.power(l2, 2)) / (2 * l1)
+        c = (np.power(base_x, 2) + 
+             np.power(base_z, 2) - 
+             np.power(l1, 2) - 
+             np.power(l2, 2)) / (2 * l1)
         # b = epsilon * np.sqrt(np.power(l2, 2) - np.power(c, 2))
         b_squared = np.power(l2, 2) - np.power(c, 2)
         if b_squared < 0:
@@ -49,62 +52,59 @@ class Inverse_Kinematics:
         return beta1_deg, beta2_deg
 
     @staticmethod
-    def decide_elbow_configuration(self, robot, x, z, current_beta1, current_beta2):
-        beta1_up, beta2_up = self.inverse_kinematics(robot, x, z, elbow_up=True)
-        beta1_down, beta2_down = self.inverse_kinematics(robot, x, z, elbow_up=False)
+    def decide_elbow_configuration(self, robot, x, y, z):
+        beta1_up, beta2_up = self.inverse_kinematics(robot, x, y, z, elbow_up=True)
+        beta1_down, beta2_down = self.inverse_kinematics(robot, x, y, z, elbow_up=False)
         
         if beta1_up is None and beta1_down is None:
             raise ValueError("Target point is not reachable.")
         
         if beta1_up is not None and beta1_down is not None:
-            delta_up = abs(beta1_up - current_beta1) + abs(beta2_up - current_beta2)
-            delta_down = abs(beta1_down - current_beta1) + abs(beta2_down - current_beta2)
+            delta_up = abs(beta1_up + beta2_up)
+            delta_down = abs(beta1_down + beta2_down)
             
             if delta_up <= delta_down:
                 return beta1_up, beta2_up, "Elbow-Up"
             else:
                 return beta1_down, beta2_down, "Elbow-Down"
+            
         elif beta1_up is not None:
             return beta1_up, beta2_up, "Elbow-Up"
         else:
             return beta1_down, beta2_down, "Elbow-Down"
 
+    @staticmethod
+    def calculate_workspaces(self, robot):
+        ws = Workspace()
+        workspace, _, _ = ws.calculate_workspace(ws, robot, 0, 200)
+
+        elbow_up_points = []
+        elbow_down_points = []
+        common_points = []
+
+        for x, z in workspace:
+            beta1_up, beta2_up = self.inverse_kinematics(robot, x, 0, z, elbow_up=True)
+            beta1_down, beta2_down = self.inverse_kinematics(robot, x, 0, z, elbow_up=False)
+
+            if beta1_up is not None and beta1_down is not None:
+                common_points.append((x, z))
+            elif beta1_up is not None:
+                elbow_up_points.append((x, z))
+            elif beta1_down is not None:
+                elbow_down_points.append((x, z))
+
+        elbow_up_points = np.array(elbow_up_points)
+        elbow_down_points = np.array(elbow_down_points)
+        common_points = np.array(common_points)
+        workspace = np.array(workspace)
+
+        return workspace, common_points, elbow_down_points, elbow_up_points
+
 def plot():
     robot = Roboter()
     ik = Inverse_Kinematics()
-    ws = Workspace()
 
-    workspace, _, _ = ws.calculate_workspace(ws, robot, 200)
-
-    with open("output/workspace.txt", "a") as f:
-        print(workspace, file=f)
-
-    elbow_up_points = []
-    elbow_down_points = []
-    common_points = []
-
-    for x, z in workspace:
-        beta1_up, beta2_up = ik.inverse_kinematics(robot, x, z, elbow_up=True)
-        beta1_down, beta2_down = ik.inverse_kinematics(robot, x, z, elbow_up=False)
-
-        if beta1_up is not None and beta1_down is not None:
-            common_points.append((x, z))
-        elif beta1_up is not None:
-            elbow_up_points.append((x, z))
-        elif beta1_down is not None:
-            elbow_down_points.append((x, z))
-
-    with open("output/common_workspace.txt", "a") as f:
-        print(common_points, file=f)
-    with open("output/elbow_up_workspace.txt", "a") as f:
-        print(elbow_up_points, file=f)
-    with open("output/elbow_down_workspace.txt", "a") as f:        
-        print(elbow_down_points, file=f)
-
-    elbow_up_points = np.array(elbow_up_points)
-    elbow_down_points = np.array(elbow_down_points)
-    common_points = np.array(common_points)
-    workspace = np.array(workspace)
+    workspace, common_points, elbow_down_points, elbow_up_points = ik.calculate_workspaces(ik, robot)
 
     plt.figure(figsize=(8, 8))
     plt.scatter(workspace[:, 0], workspace[:, 1], color="grey", label="Calculated Workspace")
@@ -112,7 +112,7 @@ def plot():
     plt.scatter(elbow_up_points[:, 0], elbow_up_points[:, 1], color="blue", label="Elbow-Up Only")
     plt.scatter(elbow_down_points[:, 0], elbow_down_points[:, 1], color="red", label="Elbow-Down Only")
 
-    plt.title("Workspace of the Roboter with Elbow-Up and Elbow-Down Configurations")
+    plt.title("Workspace of the Roboter with Alpha 0°, Elbow-Up and Elbow-Down Configuration")
     plt.xlabel("X")
     plt.ylabel("Z")
     plt.legend()

@@ -4,16 +4,15 @@ from roboter import Roboter
 import transformations as tf
 
 class Workspace:
-    '''
+
     @staticmethod
-    def forward_kinematics(l1, l2, beta_1, beta_2):
+    def forward_kinematics_trigo(l1, l2, beta_1, beta_2):
         x = l1 * np.cos(beta_1) + l2 * np.cos(beta_1 + beta_2)
         z = l1 * np.sin(beta_1) + l2 * np.sin(beta_1 + beta_2)
         return x, z
-    '''
 
     @staticmethod
-    def forward_kinematics(l1, l2, beta_1, beta_2):
+    def forward_kinematics_2d(l1, l2, beta_1, beta_2):
         T0 = tf.trans([0, 0])
         R1 = tf.rot2trans(tf.rot(beta_1))
         TR0 = np.matmul(T0, R1)
@@ -31,9 +30,28 @@ class Workspace:
         
         return x, z
 
+    @staticmethod
+    def forward_kinematics(l1, l2, alpha, beta_1, beta_2):
+        
+        T_alpha = tf.rot2trans(tf.rotz(np.radians(alpha)))
+
+        T_D = tf.rot2trans(tf.rotx(90))
+        
+        T_beta1 = tf.rot2trans(tf.rotz(beta_1))
+        T_trans1 = tf.trans([l1, 0, 0])
+        
+        T_beta2 = tf.rot2trans(tf.rotz(beta_2))
+        T_trans2 = tf.trans([l2, 0, 0])
+        
+        T_total = T_alpha @ T_D @ T_beta1 @ T_trans1 @ T_beta2 @ T_trans2
+
+        x, y, z = T_total[0, 3], T_total[1, 3], T_total[2, 3]
+        
+        return x, z
+
 
     @staticmethod
-    def calculate_workspace(self, robot, res):
+    def calculate_workspace(self, robot, alpha, res):
 
         base_x = robot.l / 2
         base_z = robot.h
@@ -50,7 +68,7 @@ class Workspace:
         
         for beta_1 in beta_1_range:
             for beta_2 in beta_2_range:
-                x, z = self.forward_kinematics(robot.l1, robot.l2, beta_1, beta_2)
+                x, z = self.forward_kinematics(robot.l1, robot.l2, alpha, beta_1, beta_2)
                 x += base_x
                 z += base_z
                 workspace.append((x, z))
@@ -60,15 +78,19 @@ def plot():
     robot = Roboter()
     ws = Workspace()
 
-    workspace, base_x, base_z = ws.calculate_workspace(ws, robot, 100)
+    workspace_0, base_x_0, base_z_0 = ws.calculate_workspace(ws, robot, 0, 100)
+    workspace_180, base_x_180, base_z_180 = ws.calculate_workspace(ws, robot, 180, 100)
 
-    x_vals = [pos[0] for pos in workspace]
-    z_vals = [pos[1] for pos in workspace]
+    x_vals_0 = [pos[0] for pos in workspace_0]
+    z_vals_0 = [pos[1] for pos in workspace_0]
+
+    x_vals_180 = [pos[0] for pos in workspace_180]
+    z_vals_180 = [pos[1] for pos in workspace_180]
 
     plt.figure(figsize=(8, 8))
-    plt.scatter(x_vals, z_vals, s=1, color='b', label='Workspace')
-
-    plt.plot(base_x, base_z, 'go', label=f'Base ({base_x:.2f}, {base_z:.2f})')
+    plt.scatter(x_vals_0, z_vals_0, s=1, color='b', label='Workspace alpha 0°')
+    plt.scatter(x_vals_180, z_vals_180, s=1, color='r', label='Workspace alpha 180°')
+    plt.plot(base_x_0, base_z_0, 'go', label=f'Base ({base_x_0:.2f}, {base_z_0:.2f})')
 
     extreme_positions = []
     extreme_angles = [
@@ -77,13 +99,17 @@ def plot():
     ]
 
     for beta_1, beta_2 in extreme_angles:
-        x, z = ws.forward_kinematics(robot.l1, robot.l2, beta_1, beta_2)
-        x += base_x
-        z += base_z
+        x, z = ws.forward_kinematics(robot.l1, robot.l2, 0, beta_1, beta_2)
+        x += base_x_0
+        z += base_z_0
         extreme_positions.append((x, z))
 
-        plt.plot([base_x, base_x + robot.l1 * np.cos(beta_1)], [base_z, base_z + robot.l1 * np.sin(beta_1)], 'r-', label=f'Arm Part 1 @{np.degrees(beta_1):.1f}°')
-        plt.plot([base_x + robot.l1 * np.cos(beta_1), x], [base_z + robot.l1 * np.sin(beta_1), z], 'g-', label=f'Arm Part 2 @{np.degrees(beta_2):.1f}°')
+        plt.plot([base_x_0, base_x_0 + robot.l1 * np.cos(beta_1)], 
+                 [base_z_0, base_z_0 + robot.l1 * np.sin(beta_1)], 
+                 'r-', label=f'Arm Part 1 @{np.degrees(beta_1):.1f}°')
+        plt.plot([base_x_0 + robot.l1 * np.cos(beta_1), x], 
+                 [base_z_0 + robot.l1 * np.sin(beta_1), z], 
+                 'g-', label=f'Arm Part 2 @{np.degrees(beta_2):.1f}°')
 
     plt.title('Workspace of the Robotic Arm (Side View) with Arm Extremes')
     plt.xlabel('X Position')
