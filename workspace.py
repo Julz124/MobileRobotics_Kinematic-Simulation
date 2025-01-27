@@ -45,7 +45,7 @@ class Workspace:
         
         T_total = T_alpha @ T_D @ T_beta1 @ T_trans1 @ T_beta2 @ T_trans2
 
-        x, y, z = T_total[0, 3], T_total[1, 3], T_total[2, 3]
+        x, _, z = T_total[0, 3], T_total[1, 3], T_total[2, 3]
         
         return x, z
 

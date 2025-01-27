@@ -16,7 +16,7 @@ class Inverse_Kinematics:
                            np.power(base_y, 2) + 
                            np.power(base_z, 2))
         if distance >= (l1 + l2) or distance <= abs(l1 - l2):
-            return None, None
+            return None, None, None
 
         '''
         Elbow-Up
@@ -29,15 +29,18 @@ class Inverse_Kinematics:
         if not elbow_up:
             epsilon = 1
 
+        alpha = np.arctan2(base_y, base_x)
+
         c = (np.power(base_x, 2) + 
              np.power(base_z, 2) - 
              np.power(l1, 2) - 
              np.power(l2, 2)) / (2 * l1)
         # b = epsilon * np.sqrt(np.power(l2, 2) - np.power(c, 2))
         b_squared = np.power(l2, 2) - np.power(c, 2)
-        if b_squared < 0:
-            return None, None
-        b = epsilon * np.sqrt(max(b_squared, 0))
+        #if b_squared < 0:
+        #    return None, None, None
+        #b = epsilon * np.sqrt(max(b_squared, 0))
+        b = epsilon * np.sqrt(b_squared)
 
         beta2 = np.arctan2(b, c)
 
@@ -47,14 +50,14 @@ class Inverse_Kinematics:
         beta2_deg = np.degrees(beta2)
 
         if not (robot.beta_1_limits[0] <= beta1_deg <= robot.beta_1_limits[1]):
-            return None, None
+            return None, None, None
 
-        return beta1_deg, beta2_deg
+        return alpha, beta1_deg, beta2_deg
 
     @staticmethod
     def decide_elbow_configuration(self, robot, x, y, z):
-        beta1_up, beta2_up = self.inverse_kinematics(robot, x, y, z, elbow_up=True)
-        beta1_down, beta2_down = self.inverse_kinematics(robot, x, y, z, elbow_up=False)
+        _, beta1_up, beta2_up = self.inverse_kinematics(robot, x, y, z, elbow_up=True)
+        _, beta1_down, beta2_down = self.inverse_kinematics(robot, x, y, z, elbow_up=False)
         
         if beta1_up is None and beta1_down is None:
             raise ValueError("Target point is not reachable.")
@@ -83,8 +86,8 @@ class Inverse_Kinematics:
         common_points = []
 
         for x, z in workspace:
-            beta1_up, beta2_up = self.inverse_kinematics(robot, x, 0, z, elbow_up=True)
-            beta1_down, beta2_down = self.inverse_kinematics(robot, x, 0, z, elbow_up=False)
+            _, beta1_up, _ = self.inverse_kinematics(robot, x, 0, z, elbow_up=True)
+            _, beta1_down, _ = self.inverse_kinematics(robot, x, 0, z, elbow_up=False)
 
             if beta1_up is not None and beta1_down is not None:
                 common_points.append((x, z))
